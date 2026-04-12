@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000" # Only the Gateway is exposed to the outside world
+    networks:
+      - private-network
+    depends_on:
+      - auth-service
+
+  auth-service:
+    build: ./auth-service
+    # No ports exposed here! It is completely private and only accessible via the Gateway.
+    networks:
+      - private-network
+
+networks:
+  private-network:
+    driver: bridge
