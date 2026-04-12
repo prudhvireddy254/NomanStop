@@ -20,4 +20,14 @@ export class AppController {
   resetPassword(data: any) {
     return this.appService.resetPassword(data);
   }
+
+  @MessagePattern({ cmd: 'update-profile' })
+  updateProfile(data: any) {
+    return this.appService.updateProfile(data);
+  }
+
+  @MessagePattern({ cmd: 'get-profile' })
+  getProfile(username: string) {
+    return this.appService.getProfile(username);
+  }
 }

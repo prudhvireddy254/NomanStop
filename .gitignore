@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Prisma
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.example    

@@ -1,14 +1,15 @@
-import { Body, Controller, Get, Post, Inject, UnauthorizedException, Headers } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { Body, Controller, Get, Headers, Inject, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 
 @Controller()
 export class AppController {
   constructor(
-    @Inject('AUTH_MICROSERVICE') private readonly authClient: ClientProxy,
+    @Inject('AUTH_SERVICE')
+    private readonly authClient: ClientProxy,
     private jwtService: JwtService
-  ) {}
+  ) { }
 
   @Get()
   getHello(): string {
@@ -19,7 +20,7 @@ export class AppController {
   async register(@Body() body: any) {
     // The Gateway passes the registration request to the Auth Microservice
     const response = await firstValueFrom(this.authClient.send({ cmd: 'register' }, body));
-    
+
     if (response.error) {
       throw new UnauthorizedException(response.error);
     }
@@ -30,7 +31,7 @@ export class AppController {
   async login(@Body() body: any) {
     // The Gateway passes the login request to the Auth Microservice
     const response = await firstValueFrom(this.authClient.send({ cmd: 'login' }, body));
-    
+
     if (response.error) {
       throw new UnauthorizedException(response.error);
     }
@@ -41,7 +42,7 @@ export class AppController {
   async resetPassword(@Body() body: any) {
     // The Gateway passes the reset request to the Auth Microservice
     const response = await firstValueFrom(this.authClient.send({ cmd: 'reset-password' }, body));
-    
+
     if (response.error) {
       throw new UnauthorizedException(response.error);
     }
@@ -53,9 +54,9 @@ export class AppController {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid Bearer token');
     }
-    
+
     const token = authHeader.split(' ')[1];
-    
+
     try {
       const payload = this.jwtService.verify(token);
       return {
@@ -65,5 +66,19 @@ export class AppController {
     } catch (e) {
       throw new UnauthorizedException('Token is invalid or expired');
     }
+  }
+
+  @Put('users/profile')
+  async updateProfile(@Body() body: any) {
+    // Passes the giant UI object to the Auth Service
+    const response = await firstValueFrom(this.authClient.send({ cmd: 'update-profile' }, body));
+    return response;
+  }
+
+  @Get('users/:username')
+  async getProfile(@Param('username') username: string) {
+    // Asks the Auth Service for the requested profile data
+    const response = await firstValueFrom(this.authClient.send({ cmd: 'get-profile' }, username));
+    return response;
   }
 }

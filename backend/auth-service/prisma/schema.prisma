@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  username          String   @unique
+  email             String   @unique
+  password          String
+  
+  // -- ONBOARDING STEP 1 --
+  firstName         String?
+  lastName          String?
+  middleName        String?  // Completely optional
+  age               Int?
+  gender            String?  // e.g., "Male", "Female", or "Prefer not to say"
+  
+  // -- ONBOARDING STEP 2 --
+  phoneNumber       String?  @unique
+  
+  // -- ONBOARDING STEP 3 (Algorithm) --
+  interests         String[] // Stores a list of strings like ["sports", "music", "tech"]
+
+  // -- PROFILE DATA --
+  bio               String?  
+  profilePictureUrl String?  
+  websiteUrl        String?  // e.g., Link in their bio
+  location          String?  // e.g., "New York, USA" (Very useful for your map features!)
+  
+  // -- STATUS --
+  isVerified        Boolean  @default(false) // The famous "Blue Checkmark"
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
