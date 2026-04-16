@@ -168,6 +168,9 @@ export class AppController {
         UpdateProfileRequestBody
       >({ cmd: 'update-profile' }, body),
     );
+    if ('error' in response) {
+      throw new UnauthorizedException(response.error);
+    }
     return response;
   }
 
@@ -179,6 +182,9 @@ export class AppController {
         username,
       ),
     );
+    if ('error' in response) {
+      throw new UnauthorizedException(response.error);
+    }
     return response;
   }
 }
