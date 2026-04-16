@@ -10,24 +10,40 @@ export class AppService {
   ) {}
 
   async register(data: any) {
-    const { username, password } = data;
-    
-    // 1. Check real Postgres database for existing user
-    const existingUser = await this.prisma.user.findUnique({
-      where: { username }
+    const username = typeof data?.username === 'string' ? data.username.trim() : '';
+    const password = typeof data?.password === 'string' ? data.password : '';
+    const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
+
+    if (!username || !password || !email) {
+      return { error: 'Username, password, and email are required.' };
+    }
+
+    const existingByUsername = await this.prisma.user.findUnique({
+      where: { username },
     });
-    if (existingUser) {
+    if (existingByUsername) {
       return { error: 'User already exists!' };
     }
 
-    // 2. Save the new user permanently to Postgres
+    const existingByEmail = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingByEmail) {
+      return { error: 'Email is already registered.' };
+    }
+
     const newUser = await this.prisma.user.create({
-      data: { username, password }
+      data: {
+        username,
+        password,
+        email,
+        interests: [],
+      },
     });
     
-    return { 
-      message: 'User created successfully in database!', 
-      user: { id: newUser.id, username: newUser.username } 
+    return {
+      message: 'User created successfully in database!',
+      user: { id: newUser.id, username: newUser.username, email: newUser.email },
     };
   }
 
