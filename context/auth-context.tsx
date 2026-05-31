@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type AuthUser = {
   username: string;
@@ -26,10 +27,11 @@ type AuthContextValue = {
   user: AuthUser | null;
   onboardingComplete: boolean;
   loading: boolean;
+  restoring: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
   completeOnboarding: (payload: OnboardingPayload) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -79,6 +81,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(true);
+
+  // Restore session on startup
+  useEffect(() => {
+    async function loadStoredUser() {
+      try {
+        const storedUserJson = await AsyncStorage.getItem('@nomanstop_user');
+        if (storedUserJson) {
+          const parsedUser = JSON.parse(storedUserJson) as AuthUser;
+          setUser(parsedUser);
+
+          // Fetch the profile to check if onboarding is complete
+          const profile = await requestJson<{ interests?: string[]; error?: string }>(
+            `/users/${encodeURIComponent(parsedUser.username)}`,
+            { method: 'GET' },
+          );
+          const profileInterests = Array.isArray(profile.interests) ? profile.interests : [];
+          setOnboardingComplete(profileInterests.length > 0);
+        }
+      } catch (error) {
+        console.error('Failed to load stored user session:', error);
+      } finally {
+        setRestoring(false);
+      }
+    }
+    loadStoredUser();
+  }, []);
 
   const performLogin = useCallback(async ({ username, password }: LoginPayload) => {
     const loginResponse = await requestJson<{ access_token: string }>('/auth/login', {
@@ -86,7 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ username, password }),
     });
 
-    setUser({ username, token: loginResponse.access_token });
+    const authUser = { username, token: loginResponse.access_token };
+    setUser(authUser);
+    await AsyncStorage.setItem('@nomanstop_user', JSON.stringify(authUser));
 
     const profile = await requestJson<{ interests?: string[]; error?: string }>(
       `/users/${encodeURIComponent(username)}`,
@@ -143,14 +174,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setUser(null);
     setOnboardingComplete(false);
+    try {
+      await AsyncStorage.removeItem('@nomanstop_user');
+    } catch (error) {
+      console.error('Failed to remove stored user session:', error);
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ user, onboardingComplete, loading, login, signup, completeOnboarding, logout }),
-    [user, onboardingComplete, loading, login, signup, completeOnboarding, logout],
+    () => ({ user, onboardingComplete, loading, restoring, login, signup, completeOnboarding, logout }),
+    [user, onboardingComplete, loading, restoring, login, signup, completeOnboarding, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
