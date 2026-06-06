@@ -52,7 +52,9 @@ interface ResetPasswordSuccessBody {
   message: string;
 }
 
-type ResetPasswordMicroserviceResponse = ResetPasswordSuccessBody | AuthMicroserviceError;
+type ResetPasswordMicroserviceResponse =
+  | ResetPasswordSuccessBody
+  | AuthMicroserviceError;
 
 interface UpdateProfileRequestBody {
   username: string;

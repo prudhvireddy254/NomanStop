@@ -19,21 +19,21 @@ export class AiService {
    * This is a direct translation of the Python script you provided!
    */
   async generateStreamingChat(prompt: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const stream = await this.openai.chat.completions.create({
       model: 'z-ai/glm5',
       messages: [{ role: 'user', content: prompt }],
       temperature: 1,
       top_p: 1,
       max_tokens: 16384,
-      // @ts-ignore - Passing custom extra parameters for Nvidia reasoning model
-      extra_body: { 
-        chat_template_kwargs: { 
-          enable_thinking: true, 
-          clear_thinking: false 
-        } 
+      extra_body: {
+        chat_template_kwargs: {
+          enable_thinking: true,
+          clear_thinking: false,
+        },
       },
       stream: true,
-    });
+    } as any);
 
     return stream;
   }

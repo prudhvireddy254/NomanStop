@@ -16,4 +16,6 @@ async function bootstrap() {
   await app.listen();
   console.log('Auth Microservice listening on TCP port 4000 🚀');
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Failed to bootstrap auth-service:', err);
+});

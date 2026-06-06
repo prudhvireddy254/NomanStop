@@ -1,28 +1,34 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { AuthService } from './auth.service';
+import type {
+  LoginPayload,
+  RegisterPayload,
+  ResetPasswordPayload,
+  UpdateProfilePayload,
+} from './auth.service';
 
 @Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @MessagePattern({ cmd: 'register' })
-  register(data: any) {
+  register(data: RegisterPayload) {
     return this.authService.register(data);
   }
 
   @MessagePattern({ cmd: 'login' })
-  login(data: any) {
+  login(data: LoginPayload) {
     return this.authService.login(data);
   }
 
   @MessagePattern({ cmd: 'reset-password' })
-  resetPassword(data: any) {
+  resetPassword(data: ResetPasswordPayload) {
     return this.authService.resetPassword(data);
   }
 
   @MessagePattern({ cmd: 'update-profile' })
-  updateProfile(data: any) {
+  updateProfile(data: UpdateProfilePayload) {
     return this.authService.updateProfile(data);
   }
 
