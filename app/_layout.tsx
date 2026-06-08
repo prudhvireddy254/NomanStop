@@ -5,7 +5,7 @@ import 'react-native-reanimated';
 
 // Single source of truth — the full-featured context in features/
 import { AuthProvider } from '@/features/auth/context/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorScheme } from '@/shared/hooks/use-color-scheme';
 
 export const unstable_settings = {
   anchor: '(tabs)',

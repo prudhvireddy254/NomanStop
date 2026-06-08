@@ -55,6 +55,12 @@ interface UpdateProfileBody {
   gender?: string;
 }
 
+interface CompleteOnboardingBody {
+  username: string;
+  interests: string[];
+  following?: string[];
+}
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 @Controller()
@@ -117,6 +123,18 @@ export class GatewayController {
     const response = await firstValueFrom(
       this.authClient.send<unknown, UpdateProfileBody>(
         { cmd: 'update-profile' },
+        body,
+      ),
+    );
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 400 });
+    return response;
+  }
+
+  @Post('users/onboarding/complete')
+  async completeOnboarding(@Body() body: CompleteOnboardingBody) {
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, CompleteOnboardingBody>(
+        { cmd: 'complete-onboarding' },
         body,
       ),
     );

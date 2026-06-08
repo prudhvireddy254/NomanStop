@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { AuthService } from './auth.service';
 import type {
+  CompleteOnboardingPayload,
   LoginPayload,
   RegisterPayload,
   ResetPasswordPayload,
@@ -30,6 +31,11 @@ export class AuthController {
   @MessagePattern({ cmd: 'update-profile' })
   updateProfile(data: UpdateProfilePayload) {
     return this.authService.updateProfile(data);
+  }
+
+  @MessagePattern({ cmd: 'complete-onboarding' })
+  completeOnboarding(data: CompleteOnboardingPayload) {
+    return this.authService.completeOnboarding(data);
   }
 
   @MessagePattern({ cmd: 'get-profile' })

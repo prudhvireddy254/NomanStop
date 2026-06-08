@@ -33,6 +33,12 @@ export interface UpdateProfilePayload {
   gender?: string;
 }
 
+export interface CompleteOnboardingPayload {
+  username?: string;
+  interests?: string[];
+  following?: string[];
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -168,6 +174,52 @@ export class AuthService {
     });
 
     return { message: 'Profile updated successfully!', user: updatedUser };
+  }
+
+  async completeOnboarding(data: CompleteOnboardingPayload) {
+    const username =
+      typeof data?.username === 'string' ? data.username.trim() : '';
+    const interests = Array.isArray(data?.interests) ? data.interests : [];
+    const following = Array.isArray(data?.following) ? data.following : [];
+
+    if (!username) {
+      return { error: 'Username is required.' };
+    }
+    if (interests.length === 0) {
+      return { error: 'At least one interest is required.' };
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { username } });
+    if (!user) {
+      return { error: 'User not found' };
+    }
+
+    await this.prisma.user.update({
+      where: { username },
+      data: { interests },
+    });
+
+    if (following.length > 0) {
+      const targetUsers = await this.prisma.user.findMany({
+        where: {
+          username: { in: following },
+          NOT: { id: user.id },
+        },
+        select: { id: true },
+      });
+
+      if (targetUsers.length > 0) {
+        await this.prisma.follow.createMany({
+          data: targetUsers.map((target) => ({
+            followerId: user.id,
+            followingId: target.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    return { message: 'Onboarding completed successfully!' };
   }
 
   async getProfile(username: string) {

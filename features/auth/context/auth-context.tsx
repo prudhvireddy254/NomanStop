@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import React, {
   createContext,
   useCallback,
@@ -8,6 +7,8 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+
+import { requestJson } from '@/shared/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,52 +45,7 @@ export type AuthContextValue = {
   logout: () => Promise<void>;
 };
 
-// ─── API Client ───────────────────────────────────────────────────────────────
-
-const resolveApiBaseUrl = (): string => {
-  const configuredUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  if (configuredUrl) return configuredUrl.replace(/\/$/, '');
-
-  const hostUri =
-    Constants.expoConfig?.hostUri ??
-    (Constants.manifest2 as { extra?: { expoGo?: { debuggerHost?: string } } })
-      ?.extra?.expoGo?.debuggerHost;
-
-  if (typeof hostUri === 'string' && hostUri.length > 0) {
-    const host = hostUri.split(':')[0];
-    return `http://${host}:3000`;
-  }
-
-  return 'http://localhost:3000';
-};
-
-export const API_BASE_URL = resolveApiBaseUrl();
-
 const STORAGE_KEY = '@nomanstop_user';
-
-async function requestJson<T>(path: string, options: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-  });
-
-  const body = (await response.json().catch(() => ({}))) as
-    | Record<string, unknown>
-    | undefined;
-
-  if (!response.ok) {
-    const message =
-      (typeof body?.message === 'string' && body.message) ||
-      (typeof body?.error === 'string' && body.error) ||
-      `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return body as T;
-}
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -111,7 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(stored) as AuthUser;
           setUser(parsed);
 
-          // Check whether onboarding was completed by fetching the profile
           const profile = await requestJson<{ interests?: string[] }>(
             `/users/${encodeURIComponent(parsed.username)}`,
             { method: 'GET' },
@@ -193,13 +148,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setLoading(true);
       try {
-        // TODO: replace with a real Follow model once the social graph is built
-        const bio =
-          following.length > 0 ? `Following: ${following.join(', ')}` : undefined;
-
-        await requestJson('/users/profile', {
-          method: 'PUT',
-          body: JSON.stringify({ username: user.username, interests, bio }),
+        await requestJson('/users/onboarding/complete', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: user.username,
+            interests,
+            following,
+          }),
         });
         setOnboardingComplete(true);
       } finally {

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/features/auth/context/auth-context';
+import { API_BASE_URL } from '@/shared/lib/api-config';
 
 /**
  * Typed JSON fetch wrapper.

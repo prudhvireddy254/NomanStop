@@ -41,4 +41,21 @@ model User {
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  following         Follow[] @relation("UserFollowing")
+  followers         Follow[] @relation("UserFollowers")
+}
+
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
