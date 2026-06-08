@@ -1,9 +1,17 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AuthUser = {
+export type AuthUser = {
   username: string;
   token: string;
 };
@@ -24,26 +32,29 @@ type OnboardingPayload = {
   following: string[];
 };
 
-type AuthContextValue = {
+export type AuthContextValue = {
   user: AuthUser | null;
   onboardingComplete: boolean;
   loading: boolean;
+  /** true while the stored session is being restored from AsyncStorage on startup */
+  restoring: boolean;
   login: (payload: LoginPayload) => Promise<void>;
   signup: (payload: SignupPayload) => Promise<void>;
   completeOnboarding: (payload: OnboardingPayload) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
-// ─── API Base URL ─────────────────────────────────────────────────────────────
+// ─── API Client ───────────────────────────────────────────────────────────────
 
-const resolveApiBaseUrl = () => {
+const resolveApiBaseUrl = (): string => {
   const configuredUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, '');
-  }
+  if (configuredUrl) return configuredUrl.replace(/\/$/, '');
 
   const hostUri =
-    Constants.expoConfig?.hostUri ?? Constants.manifest2?.extra?.expoGo?.debuggerHost;
+    Constants.expoConfig?.hostUri ??
+    (Constants.manifest2 as { extra?: { expoGo?: { debuggerHost?: string } } })
+      ?.extra?.expoGo?.debuggerHost;
+
   if (typeof hostUri === 'string' && hostUri.length > 0) {
     const host = hostUri.split(':')[0];
     return `http://${host}:3000`;
@@ -52,11 +63,11 @@ const resolveApiBaseUrl = () => {
   return 'http://localhost:3000';
 };
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
-// ─── HTTP Helper ──────────────────────────────────────────────────────────────
+const STORAGE_KEY = '@nomanstop_user';
 
-const requestJson = async <T,>(path: string, options: RequestInit): Promise<T> => {
+async function requestJson<T>(path: string, options: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -65,20 +76,20 @@ const requestJson = async <T,>(path: string, options: RequestInit): Promise<T> =
     },
   });
 
-  const responseBody = (await response.json().catch(() => ({}))) as
+  const body = (await response.json().catch(() => ({}))) as
     | Record<string, unknown>
     | undefined;
 
   if (!response.ok) {
     const message =
-      (typeof responseBody?.message === 'string' && responseBody.message) ||
-      (typeof responseBody?.error === 'string' && responseBody.error) ||
+      (typeof body?.message === 'string' && body.message) ||
+      (typeof body?.error === 'string' && body.error) ||
       `Request failed with status ${response.status}`;
     throw new Error(message);
   }
 
-  return responseBody as T;
-};
+  return body as T;
+}
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
@@ -88,28 +99,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(true);
 
-  const performLogin = useCallback(async ({ username, password }: LoginPayload) => {
-    const loginResponse = await requestJson<{ access_token: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    });
+  // ── Restore session from storage on startup ──────────────────────────────
 
-    setUser({ username, token: loginResponse.access_token });
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as AuthUser;
+          setUser(parsed);
 
-    const profile = await requestJson<{ interests?: string[]; error?: string }>(
-      `/users/${encodeURIComponent(username)}`,
-      { method: 'GET' },
-    );
-    const profileInterests = Array.isArray(profile.interests) ? profile.interests : [];
-    setOnboardingComplete(profileInterests.length > 0);
+          // Check whether onboarding was completed by fetching the profile
+          const profile = await requestJson<{ interests?: string[] }>(
+            `/users/${encodeURIComponent(parsed.username)}`,
+            { method: 'GET' },
+          );
+          setOnboardingComplete(
+            Array.isArray(profile.interests) && profile.interests.length > 0,
+          );
+        }
+      } catch (err) {
+        console.error('[AuthContext] Failed to restore session:', err);
+      } finally {
+        setRestoring(false);
+      }
+    }
+    void restoreSession();
   }, []);
 
-  const login = useCallback(
+  // ── Internal helpers ──────────────────────────────────────────────────────
+
+  const persistUser = useCallback(async (authUser: AuthUser) => {
+    setUser(authUser);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+  }, []);
+
+  const performLogin = useCallback(
     async ({ username, password }: LoginPayload) => {
+      const res = await requestJson<{ access_token: string }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+
+      const authUser: AuthUser = { username, token: res.access_token };
+      await persistUser(authUser);
+
+      const profile = await requestJson<{ interests?: string[] }>(
+        `/users/${encodeURIComponent(username)}`,
+        { method: 'GET' },
+      );
+      setOnboardingComplete(
+        Array.isArray(profile.interests) && profile.interests.length > 0,
+      );
+    },
+    [persistUser],
+  );
+
+  // ── Public API ────────────────────────────────────────────────────────────
+
+  const login = useCallback(
+    async (payload: LoginPayload) => {
       setLoading(true);
       try {
-        await performLogin({ username, password });
+        await performLogin(payload);
       } finally {
         setLoading(false);
       }
@@ -135,11 +189,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeOnboarding = useCallback(
     async ({ interests, following }: OnboardingPayload) => {
-      if (!user) throw new Error('You must be logged in to complete onboarding.');
+      if (!user) throw new Error('Must be logged in to complete onboarding.');
 
       setLoading(true);
       try {
-        const bio = following.length > 0 ? `Following: ${following.join(', ')}` : undefined;
+        // TODO: replace with a real Follow model once the social graph is built
+        const bio =
+          following.length > 0 ? `Following: ${following.join(', ')}` : undefined;
+
         await requestJson('/users/profile', {
           method: 'PUT',
           body: JSON.stringify({ username: user.username, interests, bio }),
@@ -152,23 +209,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setUser(null);
     setOnboardingComplete(false);
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.error('[AuthContext] Failed to clear session:', err);
+    }
   }, []);
 
-  const value = useMemo(
-    () => ({ user, onboardingComplete, loading, login, signup, completeOnboarding, logout }),
-    [user, onboardingComplete, loading, login, signup, completeOnboarding, logout],
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      onboardingComplete,
+      loading,
+      restoring,
+      login,
+      signup,
+      completeOnboarding,
+      logout,
+    }),
+    [user, onboardingComplete, loading, restoring, login, signup, completeOnboarding, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  return ctx;
 }

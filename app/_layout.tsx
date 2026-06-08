@@ -3,7 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { AuthProvider } from '@/context/auth-context';
+// Single source of truth — the full-featured context in features/
+import { AuthProvider } from '@/features/auth/context/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {

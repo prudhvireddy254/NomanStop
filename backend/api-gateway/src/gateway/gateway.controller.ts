@@ -1,62 +1,49 @@
 import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  Inject,
-  Param,
-  Post,
-  Put,
-  UnauthorizedException,
+    Body,
+    Controller,
+    Get,
+    Inject,
+    Param,
+    Post,
+    Put,
+    UseGuards,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { AUTH_SERVICE_CLIENT } from '../common/constants/microservice.constants';
+import type { JwtPayload } from '../common/decorators/current-user.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
-interface AuthMicroserviceError {
+// ─── Shared Error Shape ───────────────────────────────────────────────────────
+
+interface MicroserviceError {
   error: string;
 }
 
-interface RegisterRequestBody {
+function isError(res: unknown): res is MicroserviceError {
+  return typeof res === 'object' && res !== null && 'error' in res;
+}
+
+// ─── Request / Response Types ─────────────────────────────────────────────────
+
+interface RegisterBody {
   username: string;
   password: string;
   email: string;
 }
 
-interface RegisterSuccessBody {
-  message: string;
-  user: { id: number; username: string; email: string };
-}
-
-type RegisterMicroserviceResponse = RegisterSuccessBody | AuthMicroserviceError;
-
-interface LoginRequestBody {
+interface LoginBody {
   username: string;
   password: string;
 }
 
-interface LoginSuccessBody {
-  message: string;
-  access_token: string;
-}
-
-type LoginMicroserviceResponse = LoginSuccessBody | AuthMicroserviceError;
-
-interface ResetPasswordRequestBody {
+interface ResetPasswordBody {
   username: string;
   newPassword: string;
 }
 
-interface ResetPasswordSuccessBody {
-  message: string;
-}
-
-type ResetPasswordMicroserviceResponse =
-  | ResetPasswordSuccessBody
-  | AuthMicroserviceError;
-
-interface UpdateProfileRequestBody {
+interface UpdateProfileBody {
   username: string;
   firstName?: string;
   lastName?: string;
@@ -68,123 +55,83 @@ interface UpdateProfileRequestBody {
   gender?: string;
 }
 
-interface UpdateProfileSuccessBody {
-  message: string;
-  user: Record<string, unknown>;
-}
-
-type UpdateProfileMicroserviceResponse =
-  | UpdateProfileSuccessBody
-  | AuthMicroserviceError;
-
-type GetProfileMicroserviceResponse =
-  | Record<string, unknown>
-  | AuthMicroserviceError;
+// ─── Controller ───────────────────────────────────────────────────────────────
 
 @Controller()
 export class GatewayController {
   constructor(
     @Inject(AUTH_SERVICE_CLIENT)
     private readonly authClient: ClientProxy,
-    private jwtService: JwtService,
   ) {}
 
   @Get()
-  getHello(): string {
-    return 'Welcome to the Secure API Gateway!';
+  healthCheck(): string {
+    return 'NomanStop API Gateway is up ✅';
   }
 
-  @Post('auth/register')
-  async register(@Body() body: RegisterRequestBody) {
-    const response: RegisterMicroserviceResponse = await firstValueFrom(
-      this.authClient.send<RegisterMicroserviceResponse, RegisterRequestBody>(
-        { cmd: 'register' },
-        body,
-      ),
-    );
+  // ── Auth ────────────────────────────────────────────────────────────────────
 
-    if ('error' in response) {
-      throw new UnauthorizedException(response.error);
-    }
+  @Post('auth/register')
+  async register(@Body() body: RegisterBody) {
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, RegisterBody>({ cmd: 'register' }, body),
+    );
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 400 });
     return response;
   }
 
   @Post('auth/login')
-  async login(@Body() body: LoginRequestBody) {
-    const response: LoginMicroserviceResponse = await firstValueFrom(
-      this.authClient.send<LoginMicroserviceResponse, LoginRequestBody>(
-        { cmd: 'login' },
-        body,
-      ),
+  async login(@Body() body: LoginBody) {
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, LoginBody>({ cmd: 'login' }, body),
     );
-
-    if ('error' in response) {
-      throw new UnauthorizedException(response.error);
-    }
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 401 });
     return response;
   }
 
   @Post('auth/reset-password')
-  async resetPassword(@Body() body: ResetPasswordRequestBody) {
-    const response: ResetPasswordMicroserviceResponse = await firstValueFrom(
-      this.authClient.send<
-        ResetPasswordMicroserviceResponse,
-        ResetPasswordRequestBody
-      >({ cmd: 'reset-password' }, body),
+  async resetPassword(@Body() body: ResetPasswordBody) {
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, ResetPasswordBody>(
+        { cmd: 'reset-password' },
+        body,
+      ),
     );
-
-    if ('error' in response) {
-      throw new UnauthorizedException(response.error);
-    }
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 400 });
     return response;
   }
 
-  @Get('private/data')
-  getPrivateData(@Headers('authorization') authHeader: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Bearer token');
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    try {
-      const payload = this.jwtService.verify<{ username: string; sub: number }>(
-        token,
-      );
-      return {
-        message: 'You have accessed private data!',
-        user: payload,
-      };
-    } catch {
-      throw new UnauthorizedException('Token is invalid or expired');
-    }
-  }
-
-  @Put('users/profile')
-  async updateProfile(@Body() body: UpdateProfileRequestBody) {
-    const response: UpdateProfileMicroserviceResponse = await firstValueFrom(
-      this.authClient.send<
-        UpdateProfileMicroserviceResponse,
-        UpdateProfileRequestBody
-      >({ cmd: 'update-profile' }, body),
-    );
-    if ('error' in response) {
-      throw new UnauthorizedException(response.error);
-    }
-    return response;
-  }
+  // ── Users ───────────────────────────────────────────────────────────────────
 
   @Get('users/:username')
   async getProfile(@Param('username') username: string) {
-    const response: GetProfileMicroserviceResponse = await firstValueFrom(
-      this.authClient.send<GetProfileMicroserviceResponse, string>(
-        { cmd: 'get-profile' },
-        username,
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, string>({ cmd: 'get-profile' }, username),
+    );
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 404 });
+    return response;
+  }
+
+  @Put('users/profile')
+  async updateProfile(@Body() body: UpdateProfileBody) {
+    const response = await firstValueFrom(
+      this.authClient.send<unknown, UpdateProfileBody>(
+        { cmd: 'update-profile' },
+        body,
       ),
     );
-    if ('error' in response) {
-      throw new UnauthorizedException(response.error);
-    }
+    if (isError(response)) throw Object.assign(new Error(response.error), { status: 400 });
     return response;
+  }
+
+  // ── Protected ───────────────────────────────────────────────────────────────
+
+  @UseGuards(JwtAuthGuard)
+  @Get('private/data')
+  getPrivateData(@CurrentUser() user: JwtPayload) {
+    return {
+      message: 'You have accessed protected data!',
+      user,
+    };
   }
 }
