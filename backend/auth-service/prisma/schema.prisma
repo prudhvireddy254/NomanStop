@@ -44,6 +44,12 @@ model User {
 
   following         Follow[] @relation("UserFollowing")
   followers         Follow[] @relation("UserFollowers")
+  posts             Post[]
+  postLikes         PostLike[]
+  comments          PostComment[]
+  hostedEvents      Event[] @relation("EventHost")
+  eventSwipes       EventSwipe[]
+  ticketOrders      TicketOrder[]
 }
 
 model Follow {
@@ -58,4 +64,141 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum EventSwipeDecision {
+  INTERESTED
+  NOT_INTERESTED
+}
+
+enum TicketStatus {
+  RESERVED
+  CANCELLED
+  CHECKED_IN
+}
+
+model Post {
+  id          Int            @id @default(autoincrement())
+  authorId    Int
+  caption     String
+  mediaUrl    String?
+  location    String?
+  visibility  PostVisibility @default(PUBLIC)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes    PostLike[]
+  comments PostComment[]
+
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model PostLike {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Event {
+  id               Int         @id @default(autoincrement())
+  hostId           Int
+  title            String
+  description      String
+  category         String
+  venueName        String
+  address          String
+  city             String
+  region           String?
+  country          String      @default("US")
+  latitude         Float?
+  longitude        Float?
+  startsAt         DateTime
+  endsAt           DateTime?
+  coverImageUrl    String?
+  priceCents       Int         @default(0)
+  currency         String      @default("USD")
+  capacity         Int?
+  ticketsAvailable Int?
+  status           EventStatus @default(PUBLISHED)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  host         User          @relation("EventHost", fields: [hostId], references: [id], onDelete: Cascade)
+  swipes       EventSwipe[]
+  ticketOrders TicketOrder[]
+
+  @@index([hostId])
+  @@index([city])
+  @@index([startsAt])
+  @@index([status])
+}
+
+model EventSwipe {
+  id        Int                @id @default(autoincrement())
+  eventId   Int
+  userId    Int
+  decision  EventSwipeDecision
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([decision])
+}
+
+model TicketOrder {
+  id         Int          @id @default(autoincrement())
+  eventId    Int
+  buyerId    Int
+  quantity   Int
+  totalCents Int
+  currency   String       @default("USD")
+  status     TicketStatus @default(RESERVED)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyer User  @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([buyerId])
+  @@index([status])
 }

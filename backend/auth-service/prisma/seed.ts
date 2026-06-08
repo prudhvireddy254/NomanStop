@@ -18,7 +18,7 @@ const SEED_USERS = [
   { username: 'sara', email: 'sara@nomanstop.com', password: 'password123' },
   { username: 'mike', email: 'mike@nomanstop.com', password: 'password123' },
   { username: 'jenny', email: 'jenny@nomanstop.com', password: 'password123' },
-  { username: 'john', email: 'john@nomanstop.com', password: 'password123' },
+  { username: 'john', email: 'john.personal@nomanstop.com', password: 'password123' },
 ] as const;
 
 async function hashPassword(password: string): Promise<string> {
