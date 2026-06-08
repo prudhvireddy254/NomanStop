@@ -5,6 +5,8 @@ import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filte
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors();
+
   // Consistent error shape for every unhandled exception
   app.useGlobalFilters(new GlobalHttpExceptionFilter());
 

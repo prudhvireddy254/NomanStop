@@ -1,14 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
 
+import { useAuth } from '@/features/auth/context/auth-context';
 import { HapticTab } from '@/shared/components/haptic-tab';
 import { IconSymbol } from '@/shared/components/icon-symbol';
-import { Colors } from '@/shared/constants/theme';
-import { useAuth } from '@/features/auth/context/auth-context';
-import { useColorScheme } from '@/shared/hooks/use-color-scheme';
+import { AppTheme } from '@/shared/constants/app-theme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { user, onboardingComplete } = useAuth();
 
   if (!user) return <Redirect href="/auth" />;
@@ -17,8 +14,15 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
+        tabBarActiveTintColor: AppTheme.primary,
+        tabBarInactiveTintColor: AppTheme.tabInactive,
+        tabBarStyle: {
+          backgroundColor: AppTheme.tabBar,
+          borderTopColor: AppTheme.tabBarBorder,
+          borderTopWidth: 1,
+        },
+        sceneStyle: { backgroundColor: AppTheme.background },
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
@@ -26,7 +30,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <IconSymbol size={26} name="house.fill" color={color} />
           ),
         }}
       />
@@ -35,7 +39,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={26} name="paperplane.fill" color={color} />
           ),
         }}
       />

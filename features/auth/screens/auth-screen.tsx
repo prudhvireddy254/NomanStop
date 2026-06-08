@@ -1,19 +1,20 @@
-import { Redirect } from 'expo-router';
-import { useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/features/auth/context/auth-context';
+import { ScreenShell } from '@/shared/components/screen-shell';
+import { AppTheme } from '@/shared/constants/app-theme';
 
 export default function AuthScreen() {
   const { user, onboardingComplete, login, signup, loading } = useAuth();
@@ -25,6 +26,15 @@ export default function AuthScreen() {
   const [focusEmail, setFocusEmail] = useState(false);
   const [focusUsername, setFocusUsername] = useState(false);
   const [focusPassword, setFocusPassword] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    if (onboardingComplete) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/onboarding');
+    }
+  }, [user, onboardingComplete]);
 
   if (user && onboardingComplete) {
     return <Redirect href="/(tabs)" />;
@@ -56,16 +66,13 @@ export default function AuthScreen() {
       }
     } catch (requestError) {
       const message =
-        requestError instanceof Error ? requestError.message : 'Unable to continue right now.';
+        requestError instanceof Error ? requestError.message : 'Unable to connect. Is the backend running?';
       setError(message);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.orb1} pointerEvents="none" />
-      <View style={styles.orb2} pointerEvents="none" />
-
+    <ScreenShell>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>
@@ -73,7 +80,6 @@ export default function AuthScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-
           <View style={styles.card}>
             <View style={styles.logoContainer}>
               <Text style={styles.logoText}>
@@ -97,7 +103,7 @@ export default function AuthScreen() {
                     onBlur={() => setFocusEmail(false)}
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor={AppTheme.textPlaceholder}
                     editable={!loading}
                   />
                 </View>
@@ -113,7 +119,7 @@ export default function AuthScreen() {
                   onFocus={() => setFocusUsername(true)}
                   onBlur={() => setFocusUsername(false)}
                   autoCapitalize="none"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={AppTheme.textPlaceholder}
                   editable={!loading}
                 />
               </View>
@@ -128,7 +134,7 @@ export default function AuthScreen() {
                   onFocus={() => setFocusPassword(true)}
                   onBlur={() => setFocusPassword(false)}
                   secureTextEntry
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={AppTheme.textPlaceholder}
                   editable={!loading}
                 />
               </View>
@@ -148,7 +154,7 @@ export default function AuthScreen() {
                 onPress={handleSubmit}
                 disabled={loading}>
                 {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={AppTheme.text} size="small" />
                 ) : (
                   <Text style={styles.primaryButtonText}>
                     {isSignup ? 'Create account' : 'Login'}
@@ -157,10 +163,7 @@ export default function AuthScreen() {
               </Pressable>
 
               <Pressable
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.secondaryButtonPressed,
-                ]}
+                style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
                 onPress={() => {
                   setError('');
                   setIsSignup((prev) => !prev);
@@ -172,20 +175,16 @@ export default function AuthScreen() {
               </Pressable>
             </View>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0F19',
-  },
   keyboardView: {
     flex: 1,
+    zIndex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -194,36 +193,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
-  orb1: {
-    position: 'absolute',
-    top: -50,
-    left: -50,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    zIndex: 0,
-  },
-  orb2: {
-    position: 'absolute',
-    bottom: -80,
-    right: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-    zIndex: 0,
-  },
   card: {
-    backgroundColor: '#161D30',
+    backgroundColor: AppTheme.surface,
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
     borderWidth: 1,
-    borderColor: '#232D45',
+    borderColor: AppTheme.surfaceBorder,
     width: '100%',
     maxWidth: 420,
   },
@@ -234,15 +209,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: AppTheme.text,
     letterSpacing: -1,
   },
   logoHighlight: {
-    color: '#3B82F6',
+    color: AppTheme.primary,
   },
   subtitle: {
     fontSize: 15,
-    color: '#94A3B8',
+    color: AppTheme.textMuted,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -255,46 +230,40 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: AppTheme.textMuted,
     marginLeft: 4,
   },
   input: {
-    backgroundColor: '#1F2942',
+    backgroundColor: AppTheme.input,
     borderWidth: 1,
-    borderColor: '#2E3D5E',
+    borderColor: AppTheme.inputBorder,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: AppTheme.text,
   },
   inputFocused: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#232F4D',
+    borderColor: AppTheme.primary,
+    backgroundColor: AppTheme.inputFocused,
   },
   primaryButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: AppTheme.primary,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
     marginTop: 8,
-    shadowColor: '#3B82F6',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   primaryButtonPressed: {
-    transform: [{ scale: 0.98 }],
     opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   disabledButton: {
     backgroundColor: '#1E293B',
-    shadowOpacity: 0,
-    elevation: 0,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: AppTheme.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -306,19 +275,19 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   secondaryText: {
-    color: '#3B82F6',
+    color: AppTheme.primary,
     fontSize: 15,
     fontWeight: '600',
   },
   errorContainer: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: AppTheme.errorBg,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: AppTheme.errorBorder,
     borderRadius: 12,
     padding: 12,
   },
   errorText: {
-    color: '#F87171',
+    color: AppTheme.error,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',

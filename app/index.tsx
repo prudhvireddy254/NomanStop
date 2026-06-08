@@ -1,16 +1,17 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/context/auth-context';
+import { AppTheme } from '@/shared/constants/app-theme';
 
 export default function IndexScreen() {
   const { user, onboardingComplete, restoring } = useAuth();
 
-  // Wait for AsyncStorage session restore before redirecting
   if (restoring) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+        <ActivityIndicator size="large" color={AppTheme.primary} />
+        <Text style={styles.loaderText}>Loading NomanStop...</Text>
       </View>
     );
   }
@@ -25,6 +26,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0B0F19',
+    backgroundColor: AppTheme.background,
+    gap: 16,
+  },
+  loaderText: {
+    color: AppTheme.textMuted,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

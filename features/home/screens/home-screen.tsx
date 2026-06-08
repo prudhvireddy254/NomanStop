@@ -1,23 +1,36 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/features/auth/context/auth-context';
+import { ScreenShell } from '@/shared/components/screen-shell';
+import { AppTheme } from '@/shared/constants/app-theme';
 
 export default function HomeScreen() {
   const { user, logout } = useAuth();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.orb1} pointerEvents="none" />
-      <View style={styles.orb2} pointerEvents="none" />
+    <ScreenShell>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Welcome back</Text>
+          <Text style={styles.username}>@{user?.username}</Text>
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.title}>Welcome to NomanStop</Text>
-        <Text style={styles.subtitle}>Logged in as @{user?.username}</Text>
-        <Text style={styles.bodyText}>
-          Your onboarding is complete. Next, we can connect this feed to real
-          content and follower data.
-        </Text>
+        <View style={styles.feedCard}>
+          <Text style={styles.feedTitle}>Your feed</Text>
+          <Text style={styles.feedBody}>
+            You are all set. Posts, followers, and notifications will show up here
+            as we build out the social features.
+          </Text>
+        </View>
+
+        <View style={styles.feedCard}>
+          <Text style={styles.feedTitle}>What&apos;s next</Text>
+          <Text style={styles.feedItem}>• Real posts and a home timeline</Text>
+          <Text style={styles.feedItem}>• Profile pages with photos</Text>
+          <Text style={styles.feedItem}>• Follow suggestions and search</Text>
+        </View>
 
         <Pressable
           style={({ pressed }) => [
@@ -27,87 +40,70 @@ export default function HomeScreen() {
           onPress={() => void logout()}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </Pressable>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0F19',
+  content: {
     padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  orb1: {
-    position: 'absolute',
-    top: -50,
-    left: -50,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    zIndex: 0,
-  },
-  orb2: {
-    position: 'absolute',
-    bottom: -80,
-    right: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-    zIndex: 0,
-  },
-  card: {
-    backgroundColor: '#161D30',
-    borderRadius: 24,
-    padding: 24,
+    paddingBottom: 32,
     gap: 16,
-    borderWidth: 1,
-    borderColor: '#232D45',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-    width: '100%',
-    maxWidth: 400,
+  },
+  header: {
+    gap: 4,
     zIndex: 1,
   },
-  title: {
-    fontSize: 26,
+  greeting: {
+    fontSize: 15,
+    color: AppTheme.textMuted,
+    fontWeight: '500',
+  },
+  username: {
+    fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: AppTheme.text,
     letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#3B82F6',
-    fontWeight: '700',
+  feedCard: {
+    backgroundColor: AppTheme.surface,
+    borderRadius: 20,
+    padding: 20,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: AppTheme.surfaceBorder,
+    zIndex: 1,
   },
-  bodyText: {
+  feedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: AppTheme.text,
+  },
+  feedBody: {
     fontSize: 15,
-    color: '#94A3B8',
+    color: AppTheme.textMuted,
+    lineHeight: 22,
+  },
+  feedItem: {
+    fontSize: 14,
+    color: AppTheme.textMuted,
     lineHeight: 22,
   },
   logoutButton: {
     marginTop: 8,
-    backgroundColor: '#EF4444',
+    backgroundColor: AppTheme.danger,
     borderRadius: 12,
     alignItems: 'center',
     paddingVertical: 14,
-    shadowColor: '#EF4444',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    zIndex: 1,
   },
   logoutButtonPressed: {
-    transform: [{ scale: 0.98 }],
     opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   logoutButtonText: {
-    color: '#FFFFFF',
+    color: AppTheme.text,
     fontSize: 16,
     fontWeight: '700',
   },

@@ -8,46 +8,20 @@ import React, {
   useState,
 } from 'react';
 
-import { requestJson } from '@/shared/lib/api-client';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type AuthUser = {
-  username: string;
-  token: string;
-};
-
-type LoginPayload = {
-  username: string;
-  password: string;
-};
-
-type SignupPayload = {
-  username: string;
-  password: string;
-  email: string;
-};
-
-type OnboardingPayload = {
-  interests: string[];
-  following: string[];
-};
-
-export type AuthContextValue = {
-  user: AuthUser | null;
-  onboardingComplete: boolean;
-  loading: boolean;
-  /** true while the stored session is being restored from AsyncStorage on startup */
-  restoring: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
-  signup: (payload: SignupPayload) => Promise<void>;
-  completeOnboarding: (payload: OnboardingPayload) => Promise<void>;
-  logout: () => Promise<void>;
-};
+import {
+  fetchUserProfile,
+  isOnboardingComplete,
+  loginRequest,
+  registerRequest,
+} from '@/features/auth/api/auth.api';
+import type {
+  AuthContextValue,
+  AuthUser,
+  LoginPayload,
+  SignupPayload,
+} from '@/features/auth/types/auth.types';
 
 const STORAGE_KEY = '@nomanstop_user';
-
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -57,34 +31,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(true);
 
-  // ── Restore session from storage on startup ──────────────────────────────
-
   useEffect(() => {
     async function restoreSession() {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored) as AuthUser;
-          setUser(parsed);
+        if (!stored) return;
 
-          const profile = await requestJson<{ interests?: string[] }>(
-            `/users/${encodeURIComponent(parsed.username)}`,
-            { method: 'GET' },
-          );
-          setOnboardingComplete(
-            Array.isArray(profile.interests) && profile.interests.length > 0,
-          );
-        }
+        const parsed = JSON.parse(stored) as AuthUser;
+        setUser(parsed);
+
+        const profile = await fetchUserProfile(parsed.username);
+        setOnboardingComplete(isOnboardingComplete(profile));
       } catch (err) {
-        console.error('[AuthContext] Failed to restore session:', err);
+        console.error('[Auth] Failed to restore session:', err);
       } finally {
         setRestoring(false);
       }
     }
+
     void restoreSession();
   }, []);
-
-  // ── Internal helpers ──────────────────────────────────────────────────────
 
   const persistUser = useCallback(async (authUser: AuthUser) => {
     setUser(authUser);
@@ -93,26 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const performLogin = useCallback(
     async ({ username, password }: LoginPayload) => {
-      const res = await requestJson<{ access_token: string }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
-      });
-
+      const res = await loginRequest({ username, password });
       const authUser: AuthUser = { username, token: res.access_token };
       await persistUser(authUser);
 
-      const profile = await requestJson<{ interests?: string[] }>(
-        `/users/${encodeURIComponent(username)}`,
-        { method: 'GET' },
-      );
-      setOnboardingComplete(
-        Array.isArray(profile.interests) && profile.interests.length > 0,
-      );
+      const profile = await fetchUserProfile(username);
+      setOnboardingComplete(isOnboardingComplete(profile));
     },
     [persistUser],
   );
-
-  // ── Public API ────────────────────────────────────────────────────────────
 
   const login = useCallback(
     async (payload: LoginPayload) => {
@@ -127,41 +82,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signup = useCallback(
-    async ({ username, password, email }: SignupPayload) => {
+    async (payload: SignupPayload) => {
       setLoading(true);
       try {
-        await requestJson('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({ username, password, email }),
-        });
-        await performLogin({ username, password });
+        await registerRequest(payload);
+        await performLogin({ username: payload.username, password: payload.password });
       } finally {
         setLoading(false);
       }
     },
     [performLogin],
-  );
-
-  const completeOnboarding = useCallback(
-    async ({ interests, following }: OnboardingPayload) => {
-      if (!user) throw new Error('Must be logged in to complete onboarding.');
-
-      setLoading(true);
-      try {
-        await requestJson('/users/onboarding/complete', {
-          method: 'POST',
-          body: JSON.stringify({
-            username: user.username,
-            interests,
-            following,
-          }),
-        });
-        setOnboardingComplete(true);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user],
   );
 
   const logout = useCallback(async () => {
@@ -170,11 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (err) {
-      console.error('[AuthContext] Failed to clear session:', err);
+      console.error('[Auth] Failed to clear session:', err);
     }
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const markOnboardingComplete = useCallback(() => {
+    setOnboardingComplete(true);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -184,10 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       restoring,
       login,
       signup,
-      completeOnboarding,
       logout,
+      markOnboardingComplete,
     }),
-    [user, onboardingComplete, loading, restoring, login, signup, completeOnboarding, logout],
+    [user, onboardingComplete, loading, restoring, login, signup, logout, markOnboardingComplete],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,21 +1,48 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nomanstop
+      POSTGRES_PASSWORD: nomanstop
+      POSTGRES_DB: nomanstop
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - private-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nomanstop -d nomanstop']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      DATABASE_URL: postgresql://nomanstop:nomanstop@postgres:5432/nomanstop
+      JWT_SECRET: dev-jwt-secret-change-in-production
+    networks:
+      - private-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api-gateway:
     build: ./api-gateway
     ports:
-      - "3000:3000" # Only the Gateway is exposed to the outside world
+      - '3000:3000'
+    environment:
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: 3000
     networks:
       - private-network
     depends_on:
       - auth-service
 
-  auth-service:
-    build: ./auth-service
-    # No ports exposed here! It is completely private and only accessible via the Gateway.
-    networks:
-      - private-network
-
 networks:
   private-network:
     driver: bridge
+
+volumes:
+  postgres_data:

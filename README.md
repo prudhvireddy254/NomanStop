@@ -1,50 +1,141 @@
-# Welcome to your Expo app 👋
+# NomanStop
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobile social app — **Expo (React Native)** frontend + **NestJS** backend.
 
-## Get started
+> **New to the project?**
+> - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — services, languages, future design
+> - **[docs/PACKAGES.md](docs/PACKAGES.md)** — why many `package.json` / `node_modules`, what to run where
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Folder structure
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+NomanStop/
+│
+├── app/                         # ROUTES ONLY — no logic here
+│   ├── _layout.tsx              # Root layout + AuthProvider
+│   ├── index.tsx                # Startup redirect
+│   ├── auth.tsx                 # → features/auth
+│   ├── onboarding.tsx           # → features/onboarding
+│   └── (tabs)/
+│       ├── _layout.tsx          # Tab bar
+│       ├── index.tsx            # → features/home
+│       └── explore.tsx          # → features/explore
+│
+├── features/                    # All app logic lives here
+│   ├── auth/
+│   │   ├── api/auth.api.ts      # Login, register, profile fetch
+│   │   ├── context/             # Session state (user, token)
+│   │   ├── screens/             # Login / signup screen
+│   │   └── types/               # TypeScript types
+│   ├── onboarding/
+│   │   ├── api/                 # Save interests + follows
+│   │   └── screens/
+│   ├── home/
+│   │   └── screens/
+│   └── explore/
+│       └── screens/
+│
+├── shared/                      # Reusable across features
+│   ├── components/              # ScreenShell, icons, tab button
+│   ├── constants/app-theme.ts   # Colors (single source of truth)
+│   └── lib/
+│       ├── api-config.ts        # API base URL
+│       └── api-client.ts        # fetch wrapper
+│
+├── assets/                      # Images, icons
+│
+└── backend/                     # See backend/README.md for full guide
+    ├── docker-compose.yml       # Postgres + services
+    ├── api-gateway/             # HTTP API :3000 (phone connects here)
+    └── auth-service/            # Users + auth (internal TCP only)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Rules
 
-## Learn more
+| Folder | Put what here |
+|--------|----------------|
+| `app/` | Route files that re-export screens. Nothing else. |
+| `features/<name>/` | One feature = screens + api + types for that feature |
+| `shared/` | UI components and utilities used by 2+ features |
+| `backend/` | All server code |
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## How it connects
 
-## Join the community
+```
+Phone  ──HTTP──▶  api-gateway :3000  ──TCP──▶  auth-service  ──▶  PostgreSQL
+```
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Run locally
+
+### Backend
+
+```bash
+cd backend
+npm run docker:up
+```
+
+Check: http://localhost:3000 → `NomanStop API Gateway is up ✅`
+
+### Mobile
+
+```bash
+npm install
+npx expo start
+```
+
+**Physical device:** copy `env.example` → `.env` and set your computer IP:
+
+```
+EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:3000
+```
+
+### Test accounts
+
+| Username  | Password           |
+|-----------|--------------------|
+| admin     | admin_password123  |
+| john_doe  | secretpassword     |
+
+---
+
+## App flow
+
+```
+Open app → Login → Onboarding → Home / Explore tabs
+```
+
+Session is saved automatically (AsyncStorage).
+
+---
+
+## Where to add new code
+
+| I want to… | Add code in… |
+|------------|--------------|
+| New screen | `features/<feature>/screens/` + route in `app/` |
+| New API call | `features/<feature>/api/` |
+| New shared UI | `shared/components/` |
+| New backend route | `backend/api-gateway/src/gateway/gateway.controller.ts` |
+| New database table | `backend/auth-service/prisma/schema.prisma` |
+
+---
+
+## Backend
+
+Full backend guide: **[backend/README.md](backend/README.md)**
+
+Quick API reference:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Health check |
+| POST | `/auth/register` | Sign up |
+| POST | `/auth/login` | Log in |
+| GET | `/users/:username` | Get profile |
+| POST | `/users/onboarding/complete` | Finish onboarding |
